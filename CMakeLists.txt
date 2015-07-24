@@ -1,0 +1,13 @@
+set(the_description "The UbiTrack FreenectFrameGrabber Component")
+ut_add_component(FreenectFrameGrabber DEPS utcore utdataflow utvision )
+
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# should be extended to recognize V1/V2 and include files accordingly ...
+FIND_PACKAGE(Freenect)
+IF(OPENNI2_FOUND)
+	ut_component_include_directories("src/FreenectFrameGrabber" ${UBITRACK_CORE_DEPS_INCLUDE_DIR} ${OPENCV_INCLUDE_DIR} ${TBB_INCLUDE_DIR} ${OPENNI2_INCLUDE_DIRS})
+	ut_glob_component_sources(SOURCES "src/FreenectFrameGrabber/FreenectFrameGrabber.cpp")
+	ut_create_single_component(${OPENNI2_LIBRARIES} ${TBB_ALL_LIBRARIES})
+	ut_install_utql_patterns()
+ENDIF(OPENNI2_FOUND)

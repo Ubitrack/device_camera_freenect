@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<UTQLPatternTemplates xmlns='http://ar.in.tum.de/ubitrack/utql'
+	xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance'
+	xmlns:xi='http://www.w3.org/2001/XInclude'
+	xmlns:h="http://www.w3.org/1999/xhtml"
+	xsi:schemaLocation='http://ar.in.tum.de/ubitrack/utql ../../../schema/utql_templates.xsd'>
+
+	<Pattern name="FreenectFrameGrabberUncalibrated" displayName="Freenect Framegrabber (Uncalibrated)">
+		<Description>
+			<h:p>
+				This component grabs images from a Freenect device and pushes them.
+			</h:p>
+		</Description>
+		<Output>
+			<Node name="Camera" displayName="Camera" />
+			<Node name="ImagePlane" displayName="Image Plane" />
+			<Edge name="Output" source="Camera" destination="ImagePlane" displayName="Image">
+				<Description>
+					<h:p>The camera image.</h:p>
+				</Description>
+				<Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+			</Edge>
+		</Output>
+
+		<DataflowConfiguration>
+			<UbitrackLib class="FreenectFrameGrabber" />
+
+			<Attribute name="deviceUrl" default="" xsi:type="IntAttributeDeclarationType" displayName="device url">
+				<Description>
+					<h:p>The device url.</h:p>
+				</Description>
+			</Attribute>
+			<Attribute name="sensorType" xsi:type="EnumAttributeReferenceType"/>
+
+		</DataflowConfiguration>
+	</Pattern>	
+	<!-- Attribute declarations -->
+
+	<GlobalNodeAttributeDeclarations>
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/1/1)" />
+	</GlobalNodeAttributeDeclarations>
+
+	<GlobalEdgeAttributeDeclarations>
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/1)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/2)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/3)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/4)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/5)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/6)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/7)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/2/8)" />
+	</GlobalEdgeAttributeDeclarations>
+
+	<GlobalDataflowAttributeDeclarations>
+		<!-- Unfortunately, the xpointer used in Xinclude is currently restricted to the element scheme and absolute element indices in Xerces (and thus XMLBeans) -->
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/1)" />
+		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/2)" />
+
+		<Attribute name="sensorType" displayName="OpenNI Sensor Type" default="DEPTH" xsi:type="EnumAttributeDeclarationType">
+			<Description><p xmlns="http://www.w3.org/1999/xhtml">SensorType of the Freenect Device.</p></Description>
+			<EnumValue name="DEPTH" displayName="Depth"/>
+			<EnumValue name="COLOR" displayName="Color"/>
+			<EnumValue name="IR" displayName="Infrared"/>
+		</Attribute>
+
+	</GlobalDataflowAttributeDeclarations>
+
+</UTQLPatternTemplates>
+
