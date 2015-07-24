@@ -51,8 +51,7 @@ static log4cpp::Category& logger( log4cpp::Category::getInstance( "Ubitrack.Visi
 using namespace Ubitrack;
 using namespace Ubitrack::Vision;
 using namespace Ubitrack::Drivers;
-using namespace openni;
-
+using namespace freenect_camera;
 
 FreenectModule::FreenectModule( const FreenectModuleKey& moduleKey, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory )
         : Module< FreenectModuleKey, FreenectComponentKey, FreenectModule, FreenectComponent >( moduleKey, pFactory )
@@ -120,19 +119,28 @@ void FreenectModule::ThreadProc()
 {
 	LOG4CPP_DEBUG( logger, "Freenect Thread started" );
 
+	// check that steam only contains either IR or RGB nodes ..
+
+	ComponentList allComponents( getAllComponents() );
 	for ( ComponentList::iterator it = allComponents.begin(); it != allComponents.end(); it++ ) {
 		switch ((*it)->getKey().getSensorType()) {
 			case SENSOR_IR:
-				m_device->registerIRCallback(&FreenectComponent::imageCb, (*it) );
+				m_device->registerIRCallback(&FreenectModule::irCb, *this );
 				LOG4CPP_INFO( logger, "registered IR callback");
+				if (!m_device->isImageStreamRunning())
+					m_device->startImageStream();
 				break;
 			case SENSOR_RGB:
-				m_device->registerImageCallback(&FreenectComponent::imageCb, (*it) );
+				m_device->registerImageCallback(&FreenectModule::rgbCb, *this );
 				LOG4CPP_INFO( logger, "registered RGB callback");
+				if (!m_device->isImageStreamRunning())
+					m_device->startImageStream();
 				break;
 			case SENSOR_DEPTH:
-				m_device->registerDepthCallback(&FreenectComponent::imageCb, (*it) );
+				m_device->registerDepthCallback(&FreenectModule::depthCb, *this );
 				LOG4CPP_INFO( logger, "registered DEPTH callback");
+				if (!m_device->isDepthStreamRunning())
+					m_device->startDepthStream();
 				break;
 			default:
 				LOG4CPP_WARN( logger, "Device has no sensor with type: " << (*it)->getKey().getSensorType());
@@ -149,11 +157,32 @@ void FreenectModule::ThreadProc()
 		t.tv_usec = 10000;
 		if (freenect_process_events_timeout(m_driver, &t) < 0)
 			UBITRACK_THROW("freenect_process_events error");
-		if (device_)
-			device_->executeChanges();
+		if (m_device)
+			m_device->executeChanges();
 	}
 
 	LOG4CPP_DEBUG( logger, "Freenect Thread stopped" );
+}
+
+void FreenectModule::rgbCb(const ImageBuffer& image, void* cookie) {
+	const ComponentKey key(SENSOR_RGB);
+	if (hasComponent( key )) {
+		getComponent( key )->imageCb(image);
+	}
+}
+
+void FreenectModule::irCb(const ImageBuffer& image, void* cookie) {
+	const ComponentKey key(SENSOR_IR);
+	if (hasComponent( key )) {
+		getComponent( key )->imageCb(image);
+	}
+}
+
+void FreenectModule::depthCb(const ImageBuffer& image, void* cookie) {
+	const ComponentKey key(SENSOR_DEPTH);
+	if (hasComponent( key )) {
+		getComponent( key )->imageCb(image);
+	}
 }
 
 boost::shared_ptr< FreenectModule::ComponentClass > FreenectModule::createComponent( const std::string&, const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph> subgraph, const ComponentKey& key, ModuleClass* pModule ) {
@@ -168,56 +197,63 @@ FreenectComponent::FreenectComponent( const std::string& name, boost::shared_ptr
 
 }
 
-void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image, void* cookie) {
+void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 
 	Ubitrack::Measurement::Timestamp ts = Ubitrack::Measurement::now();
 	boost::shared_ptr< Vision::Image > pImage;
 
-	int width = image.metadata.width
-	it height = image.metadata.height;
+	int width = image.metadata.width;
+	int height = image.metadata.height;
 
 
 	bool new_image_data = false;
 	switch (getKey().getSensorType())
 	{
 		case SENSOR_IR:
-			if (image.metadata.video_mode == FREENECT_VIDEO_IR_8BIT) {
+			if (image.metadata.video_format == FREENECT_VIDEO_IR_8BIT) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_8U));
 				pImage->origin = 0;
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				memcpy(pImage->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
+				new_image_data = true;
+
+			} else  if (image.metadata.video_format == FREENECT_VIDEO_IR_10BIT) {
+				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
+				pImage->origin = 0;
+//				freenect_camera::fill(image, pImage->imageData);
+				memcpy(pImage->imageData, (unsigned char *) image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
-				LOG4CPP_WARN( logger, "Unsupported IR Videomode: " << image.metadata.video_mode );
+				LOG4CPP_WARN( logger, "Unsupported IR Videomode: " << image.metadata.video_format );
 			}
 			break;
 		case SENSOR_RGB:
-			if (image.metadata.video_mode == FREENECT_VIDEO_RGB) {
+			if (image.metadata.video_format == FREENECT_VIDEO_RGB) {
 				pImage.reset(new Vision::Image(width, height, 3, IPL_DEPTH_8U));
 				pImage->origin = 0;
 				pImage->channelSeq[0] = 'R';
 				pImage->channelSeq[1] = 'G';
 				pImage->channelSeq[2] = 'B';
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				memcpy(pImage->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
-				LOG4CPP_WARN( logger, "Unsupported RGB Videomode: " << image.metadata.video_mode );
+				LOG4CPP_WARN( logger, "Unsupported RGB Videomode: " << image.metadata.video_format );
 			}
 			break;
 
 		case SENSOR_DEPTH:
-			if (image.metadata.video_mode == FREENECT_DEPTH_11BIT) {
+			if ((image.metadata.depth_format == FREENECT_DEPTH_11BIT) || (image.metadata.depth_format == FREENECT_DEPTH_MM)) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
 				pImage->origin = 0;
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				memcpy(pImage->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
-				LOG4CPP_WARN( logger, "Unsupported DEPTH Videomode: " << image.metadata.video_mode );
+				LOG4CPP_WARN( logger, "Unsupported DEPTH Videomode: " << image.metadata.video_format );
 			}
 			break;
 

@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/shared_array.hpp>
 #include <boost/lexical_cast.hpp>
 
 #include <libfreenect.h>

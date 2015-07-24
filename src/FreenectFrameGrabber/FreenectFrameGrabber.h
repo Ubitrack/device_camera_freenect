@@ -139,7 +139,7 @@ class FreenectComponentKey
 public:
 
 	FreenectComponentKey( boost::shared_ptr< Graph::UTQLSubgraph > subgraph )
-	: m_sensor_type( freenect::SENSOR_DEPTH )
+	: m_sensor_type( SENSOR_DEPTH )
 	{
 
 		std::string sSensorType = subgraph->m_DataflowAttributes.getAttributeString( "sensorType" );
@@ -149,11 +149,11 @@ public:
 	}
 
 	// construct from sensor type
-	FreenectComponentKey( const freenect::SensorType a )
+	FreenectComponentKey( const SensorType a )
 		: m_sensor_type( a )
  	{}
 	
-	freenect::SensorType  getSensorType() const {
+	SensorType  getSensorType() const {
 		return m_sensor_type;
 	}
 
@@ -164,7 +164,7 @@ public:
     }
 
 protected:
-	freenect::SensorType m_sensor_type;
+	SensorType m_sensor_type;
 };
 
 
@@ -209,6 +209,12 @@ protected:
 	boost::shared_ptr< ComponentClass > createComponent( const std::string&, const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph> subgraph,
 														 const ComponentKey& key, ModuleClass* pModule );
 
+
+private:
+	void rgbCb(const freenect_camera::ImageBuffer& image, void* cookie);
+	void depthCb(const freenect_camera::ImageBuffer& depth_image, void* cookie);
+	void irCb(const freenect_camera::ImageBuffer&_image, void* cookie);
+
 };
 
 std::ostream& operator<<( std::ostream& s, const FreenectComponentKey& k );
@@ -221,7 +227,7 @@ public:
 	/** constructor */
 	FreenectComponent( const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const FreenectComponentKey& componentKey, FreenectModule* pModule );
 
-	void imageCb( const freenect_camera::ImageBuffer& image, void* cookie);
+	void imageCb( const freenect_camera::ImageBuffer& image);
 
 	/** destructor */
 	~FreenectComponent() {};

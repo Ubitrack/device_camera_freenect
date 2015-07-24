@@ -27,11 +27,12 @@
 		<DataflowConfiguration>
 			<UbitrackLib class="FreenectFrameGrabber" />
 
-			<Attribute name="deviceSerial" default="" xsi:type="IntAttributeDeclarationType" displayName="device serial">
+			<Attribute name="deviceSerial" default="" xsi:type="StringAttributeDeclarationType" displayName="device serial">
 				<Description>
 					<h:p>The device serial.</h:p>
 				</Description>
 			</Attribute>
+
 			<Attribute name="sensorType" xsi:type="EnumAttributeReferenceType"/>
 
 		</DataflowConfiguration>
@@ -58,7 +59,7 @@
 		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/1)" />
 		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/2)" />
 
-		<Attribute name="sensorType" displayName="OpenNI Sensor Type" default="DEPTH" xsi:type="EnumAttributeDeclarationType">
+		<Attribute name="sensorType" displayName="Freenect Sensor Type" default="DEPTH" xsi:type="EnumAttributeDeclarationType">
 			<Description><p xmlns="http://www.w3.org/1999/xhtml">SensorType of the Freenect Device.</p></Description>
 			<EnumValue name="DEPTH" displayName="Depth"/>
 			<EnumValue name="COLOR" displayName="Color"/>

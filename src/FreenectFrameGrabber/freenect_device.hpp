@@ -22,7 +22,7 @@ namespace freenect_camera {
   typedef freenect_resolution OutputMode;
 
   bool isImageMode(const ImageBuffer& buffer) {
-    return buffer.metadata.video_format == FREENECT_VIDEO_BAYER;
+    return buffer.metadata.video_format == FREENECT_VIDEO_RGB;
   }
 
   class FreenectDriver;
@@ -44,7 +44,7 @@ namespace freenect_camera {
         //Initialize default variables
         streaming_video_ = should_stream_video_ = false;
         new_video_resolution_ = getDefaultImageMode();
-        new_video_format_ = FREENECT_VIDEO_BAYER;
+        new_video_format_ = FREENECT_VIDEO_RGB;
         video_buffer_.metadata.resolution = FREENECT_RESOLUTION_DUMMY;
         video_buffer_.metadata.video_format = FREENECT_VIDEO_DUMMY;
 
@@ -174,7 +174,7 @@ namespace freenect_camera {
 
       void startImageStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        new_video_format_ = FREENECT_VIDEO_BAYER;
+        new_video_format_ = FREENECT_VIDEO_RGB;
         should_stream_video_ = true;
       }
 
