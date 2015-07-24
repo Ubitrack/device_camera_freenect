@@ -27,7 +27,7 @@
  * @file
  * Freenect driver
  * This file contains the driver component to
- * synchronously capture camera images using openni2.
+ * synchronously capture camera images using freenect.
  *
  * The received data is sent via a push interface.
  *
@@ -58,48 +58,65 @@
 #include <utVision/Image.h>
 #include <opencv/cv.h>
 
-#include <OpenNI.h>
-
+#include "freenect_device.hpp"
 
 
 
 namespace {
+	
+	typedef enum  {
+		SENSOR_IR = 0,
+		SENSOR_RGB = 1,
+		SENSOR_DEPTH = 2,
+	} SensorType;
+	
+	
 	class FreenectSensorMap
-		: public std::map< std::string, openni::SensorType>
+		: public std::map< std::string, SensorType>
 	{
 	public:
 		FreenectSensorMap()
 		{
-			using namespace openni;
 			
 			(*this)[ "IR" ] = SENSOR_IR;
-			(*this)[ "COLOR" ] = SENSOR_COLOR;
+			(*this)[ "COLOR" ] = SENSOR_RGB;
 			(*this)[ "DEPTH" ] = SENSOR_DEPTH;
 		}
 	};
-	static FreenectSensorMap openni2SensorMap;
+	static FreenectSensorMap freenectSensorMap;
 
-	class FreenectPixelFormatMap 
-		: public std::map< std::string, openni::PixelFormat >
+	class FreenectColorPixelFormatMap
+		: public std::map< std::string, freenect_video_format >
 	{
 	public:
-		FreenectPixelFormatMap()
+		FreenectColorPixelFormatMap()
 		{
-			using namespace openni;
-			
-			(*this)[ "DEPTH_1_MM" ] = PIXEL_FORMAT_DEPTH_1_MM;
-			(*this)[ "DEPTH_100_UM" ] = PIXEL_FORMAT_DEPTH_100_UM;
-			(*this)[ "SHIFT_9_2" ] = PIXEL_FORMAT_SHIFT_9_2;
-			(*this)[ "SHIFT_9_3" ] = PIXEL_FORMAT_SHIFT_9_3;
-			(*this)[ "RGB8" ] = PIXEL_FORMAT_RGB888;
-			(*this)[ "YUV422" ] = PIXEL_FORMAT_YUV422;
-			(*this)[ "GRAY8" ] = PIXEL_FORMAT_GRAY8;
-			(*this)[ "GRAY16" ] = PIXEL_FORMAT_GRAY16;
-			(*this)[ "JPEG" ] = PIXEL_FORMAT_JPEG;
-			(*this)[ "YUV" ] = PIXEL_FORMAT_YUYV;
+			(*this)[ "RGB" ] = FREENECT_VIDEO_RGB;
+			(*this)[ "BAYER" ] = FREENECT_VIDEO_BAYER;
+			(*this)[ "IR_8BIT" ] = FREENECT_VIDEO_IR_8BIT;
+			(*this)[ "IR_10BIT" ] = FREENECT_VIDEO_IR_10BIT;
+			(*this)[ "IR_10BIT_PACKED" ] = FREENECT_VIDEO_IR_10BIT_PACKED;
+			(*this)[ "YUV_RGB" ] = FREENECT_VIDEO_YUV_RGB;
+			(*this)[ "YUV_RAW" ] = FREENECT_VIDEO_YUV_RAW;
 		}
 	};
-	static FreenectPixelFormatMap openni2PixelFormatMap;
+	static FreenectColorPixelFormatMap freenectColorPixelFormatMap;
+
+	class FreenectDepthPixelFormatMap
+			: public std::map< std::string, freenect_depth_format >
+	{
+	public:
+		FreenectDepthPixelFormatMap()
+		{
+			(*this)[ "11BIT" ] = FREENECT_DEPTH_11BIT;
+			(*this)[ "10BIT" ] = FREENECT_DEPTH_10BIT;
+			(*this)[ "11BIT_PACKED" ] = FREENECT_DEPTH_11BIT_PACKED;
+			(*this)[ "10BIT_PACKED" ] = FREENECT_DEPTH_10BIT_PACKED;
+			(*this)[ "REGISTERED" ] = FREENECT_DEPTH_REGISTERED;
+			(*this)[ "MM" ] = FREENECT_DEPTH_MM;
+		}
+	};
+	static FreenectDepthPixelFormatMap freenectDepthPixelFormatMap;
 
 } // anonymous namespace
 
@@ -111,10 +128,10 @@ using namespace Dataflow;
 // forward declaration
 class FreenectComponent;
 
-MAKE_NODEATTRIBUTEKEY_DEFAULT( FreenectModuleKey, std::string, "Camera", "deviceUrl", "" );
+MAKE_NODEATTRIBUTEKEY_DEFAULT( FreenectModuleKey, std::string, "Camera", "deviceSerial", "" );
 
 /**
- * Component key for openni2.
+ * Component key for freenect.
  * Represents the camera
  */
 class FreenectComponentKey
@@ -122,21 +139,21 @@ class FreenectComponentKey
 public:
 
 	FreenectComponentKey( boost::shared_ptr< Graph::UTQLSubgraph > subgraph )
-	: m_sensor_type( openni::SENSOR_DEPTH )
+	: m_sensor_type( freenect::SENSOR_DEPTH )
 	{
 
 		std::string sSensorType = subgraph->m_DataflowAttributes.getAttributeString( "sensorType" );
-		if ( openni2SensorMap.find( sSensorType ) == openni2SensorMap.end() )
+		if ( freenectSensorMap.find( sSensorType ) == freenectSensorMap.end() )
 			UBITRACK_THROW( "unknown sensor type: \"" + sSensorType + "\"" );
-		m_sensor_type = openni2SensorMap[ sSensorType ];
+		m_sensor_type = freenectSensorMap[ sSensorType ];
 	}
 
 	// construct from sensor type
-	FreenectComponentKey( const openni::SensorType a )
+	FreenectComponentKey( const freenect::SensorType a )
 		: m_sensor_type( a )
  	{}
 	
-	openni::SensorType  getSensorType() const {
+	freenect::SensorType  getSensorType() const {
 		return m_sensor_type;
 	}
 
@@ -147,7 +164,7 @@ public:
     }
 
 protected:
-	openni::SensorType m_sensor_type;
+	freenect::SensorType m_sensor_type;
 };
 
 
@@ -181,17 +198,17 @@ protected:
 	// stop the thread?
 	volatile bool m_bStop;
 
-	std::string m_device_url;
+	std::string m_device_id;
 
 	/** the device **/
-	openni::Device m_device;
-
+	freenect_context* m_driver;
+	std::vector<std::string> m_device_serials;
+	boost::shared_ptr<freenect_camera::FreenectDevice> m_device;
+	
 	/** create the components **/
 	boost::shared_ptr< ComponentClass > createComponent( const std::string&, const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph> subgraph,
 														 const ComponentKey& key, ModuleClass* pModule );
 
-	unsigned int m_timeout;
-	static unsigned int m_openni_initialized_count;
 };
 
 std::ostream& operator<<( std::ostream& s, const FreenectComponentKey& k );
@@ -204,7 +221,7 @@ public:
 	/** constructor */
 	FreenectComponent( const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const FreenectComponentKey& componentKey, FreenectModule* pModule );
 
-	virtual void processImage( Measurement::Timestamp ts, const openni::VideoFrameRef& frame);
+	void imageCb( const freenect_camera::ImageBuffer& image, void* cookie);
 
 	/** destructor */
 	~FreenectComponent() {};

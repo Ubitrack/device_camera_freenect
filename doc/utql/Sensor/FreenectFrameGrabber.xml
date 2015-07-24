@@ -27,9 +27,9 @@
 		<DataflowConfiguration>
 			<UbitrackLib class="FreenectFrameGrabber" />
 
-			<Attribute name="deviceUrl" default="" xsi:type="IntAttributeDeclarationType" displayName="device url">
+			<Attribute name="deviceSerial" default="" xsi:type="IntAttributeDeclarationType" displayName="device serial">
 				<Description>
-					<h:p>The device url.</h:p>
+					<h:p>The device serial.</h:p>
 				</Description>
 			</Attribute>
 			<Attribute name="sensorType" xsi:type="EnumAttributeReferenceType"/>

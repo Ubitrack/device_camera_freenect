@@ -31,6 +31,7 @@
  */
 
 #include "FreenectFrameGrabber.h"
+#include "../../../utcore/src/utMeasurement/Timestamp.h"
 
 #include <iostream>
 #include <sstream>
@@ -52,27 +53,39 @@ using namespace Ubitrack::Vision;
 using namespace Ubitrack::Drivers;
 using namespace openni;
 
-// static int to initialize/deinitialize openni only once.
-unsigned int FreenectModule::m_openni_initialized_count = 0;
 
 FreenectModule::FreenectModule( const FreenectModuleKey& moduleKey, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, FactoryHelper* pFactory )
         : Module< FreenectModuleKey, FreenectComponentKey, FreenectModule, FreenectComponent >( moduleKey, pFactory )
-		, m_device_url(m_moduleKey.get())
-		, m_timeout( 2000 ) // 2000ms
+		, m_device_id(m_moduleKey.get())
         , m_bStop(false)
 {
-	if (m_openni_initialized_count == 0) {
-		Status rc = OpenNI::initialize();
-		if (rc != STATUS_OK)
-		{
-			LOG4CPP_ERROR( logger, "Freenect Initialize failed: " << OpenNI::getExtendedError() );
-			UBITRACK_THROW( "Freenect Initialize failed" );
-		}
-	}
-	m_openni_initialized_count++;
+	freenect_init(&m_driver, NULL);
+	//freenect_set_log_level(m_driver, FREENECT_LOG_FATAL); // Prevent's printing stuff to the screen
+	freenect_set_log_level(m_driver, FREENECT_LOG_DEBUG); // Prevent's printing stuff to the screen
+	freenect_select_subdevices(m_driver, (freenect_device_flags)(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
+
 }
 
 void FreenectModule::startModule() {
+
+	m_device_serials.clear();
+	freenect_device_attributes* attr_list;
+	freenect_device_attributes* item;
+	freenect_list_device_attributes(m_driver, &attr_list);
+	for (item = attr_list; item != NULL; item = item->next) {
+		LOG4CPP_INFO( logger, "Found freenect device with serial: " << std::string(item->camera_serial) );
+		m_device_serials.push_back(std::string(item->camera_serial));
+	}
+	freenect_free_device_attributes(attr_list);
+
+	if (m_device_serials.size() < 1) {
+		LOG4CPP_ERROR( logger, "No devices found.");
+		return;
+	}
+	if (m_device_id.empty())
+		m_device_id = m_device_serials.at(0);
+
+	m_device.reset(new FreenectDevice(m_driver, m_device_id));
 
 	// start thread immediately - it will not send images if the module is not running ..
 	m_Thread.reset( new boost::thread( boost::bind( &FreenectModule::ThreadProc, this ) ) );
@@ -86,6 +99,12 @@ void FreenectModule::stopModule() {
 		m_bStop = true;
 		m_Thread->join();
 	}
+
+	if (m_device)
+		m_device->shutdown();
+	m_device.reset();
+	freenect_shutdown(m_driver);
+
 }
 
 
@@ -94,13 +113,6 @@ FreenectModule::~FreenectModule()
 	if (m_running) {
 		stopModule();
 	}
-
-	m_openni_initialized_count--;
-
-	if (m_openni_initialized_count == 0) {
-		OpenNI::shutdown();
-	}
-
 }
 
 
@@ -108,81 +120,39 @@ void FreenectModule::ThreadProc()
 {
 	LOG4CPP_DEBUG( logger, "Freenect Thread started" );
 
-	const char* devurl = ANY_DEVICE;
-	if (!m_device_url.empty()) {
-		devurl = m_device_url.c_str();
-	}
-
-	Status rc = m_device.open(devurl);
-	if (rc != STATUS_OK)
-	{
-		LOG4CPP_ERROR( logger, "Couldn't open device: " << OpenNI::getExtendedError() );
-		return;
-	}
-
-
-	int index = 0;
-	ComponentList allComponents( getAllComponents() );
-	std::vector< VideoStream* > connected_streams;
-	std::vector< ComponentKey > connected_components;
-
 	for ( ComponentList::iterator it = allComponents.begin(); it != allComponents.end(); it++ ) {
-		if (m_device.getSensorInfo((*it)->getKey().getSensorType()) != NULL) {
-			VideoStream* stream = new VideoStream();
-
-			rc = stream->create(m_device, (*it)->getKey().getSensorType());
-			if (rc == STATUS_OK)
-			{
-				rc = stream->start();
-				if (rc != STATUS_OK)
-				{
-					LOG4CPP_ERROR( logger, "Couldn't start the stream" << std::endl << OpenNI::getExtendedError());
-					delete stream;
-					stream = NULL;
-				} else {
-					connected_streams.push_back(stream);
-					connected_components.push_back((*it)->getKey());
-				}
-			}
-			else
-			{
-				LOG4CPP_ERROR( logger, "Couldn't create the stream" << std::endl << OpenNI::getExtendedError());
-				delete stream;
-				stream = NULL;
-			}
-
-		} else {
-			LOG4CPP_WARN( logger, "Device has no sensor with type: " << (*it)->getKey().getSensorType());
+		switch ((*it)->getKey().getSensorType()) {
+			case SENSOR_IR:
+				m_device->registerIRCallback(&FreenectComponent::imageCb, (*it) );
+				LOG4CPP_INFO( logger, "registered IR callback");
+				break;
+			case SENSOR_RGB:
+				m_device->registerImageCallback(&FreenectComponent::imageCb, (*it) );
+				LOG4CPP_INFO( logger, "registered RGB callback");
+				break;
+			case SENSOR_DEPTH:
+				m_device->registerDepthCallback(&FreenectComponent::imageCb, (*it) );
+				LOG4CPP_INFO( logger, "registered DEPTH callback");
+				break;
+			default:
+				LOG4CPP_WARN( logger, "Device has no sensor with type: " << (*it)->getKey().getSensorType());
+				break;
 		}
 	}
 
-	VideoFrameRef frame;
 
 	while ( !m_bStop )
 	{
-		int readyStream = -1;
-		rc = OpenNI::waitForAnyStream(&connected_streams[0], connected_streams.size(), &readyStream, m_timeout);
-		Ubitrack::Measurement::Timestamp timestamp = Ubitrack::Measurement::now();
 
-		if (rc != STATUS_OK)
-		{
-			LOG4CPP_WARN( logger, "Wait failed! " << OpenNI::getExtendedError());
-			break;
-		}
-
-		if ((readyStream >= 0) && (readyStream < connected_streams.size())) {
-			connected_streams.at(readyStream)->readFrame(&frame);
-			getComponent( connected_components.at(readyStream) )->processImage(timestamp, frame);
-		} else {
-			LOG4CPP_WARN( logger, "Unknown stream ready for reading ...");
-		}
+		timeval t;
+		t.tv_sec = 0;
+		t.tv_usec = 10000;
+		if (freenect_process_events_timeout(m_driver, &t) < 0)
+			UBITRACK_THROW("freenect_process_events error");
+		if (device_)
+			device_->executeChanges();
 	}
 
-	for (unsigned int i=0; i < connected_streams.size(); ++i) {
-		connected_streams.at(i)->stop();
-	}
-
-	m_device.close();
 	LOG4CPP_DEBUG( logger, "Freenect Thread stopped" );
 }
 
@@ -198,33 +168,62 @@ FreenectComponent::FreenectComponent( const std::string& name, boost::shared_ptr
 
 }
 
-void FreenectComponent::processImage( Measurement::Timestamp ts, const openni::VideoFrameRef& frame) {
+void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image, void* cookie) {
+
+	Ubitrack::Measurement::Timestamp ts = Ubitrack::Measurement::now();
 	boost::shared_ptr< Vision::Image > pImage;
 
+	int width = image.metadata.width
+	it height = image.metadata.height;
+
+
 	bool new_image_data = false;
-	switch (frame.getVideoMode().getPixelFormat())
+	switch (getKey().getSensorType())
 	{
-		case PIXEL_FORMAT_DEPTH_1_MM:
-		case PIXEL_FORMAT_DEPTH_100_UM:
-		case PIXEL_FORMAT_GRAY16:
-			pImage.reset(new Vision::Image(frame.getWidth(), frame.getHeight(), 1, IPL_DEPTH_16U));
-			pImage->origin = 0;
-			memcpy(pImage->imageData, (unsigned char*)frame.getData(), frame.getWidth() * frame.getHeight() * 1);
-			new_image_data = true;
+		case SENSOR_IR:
+			if (image.metadata.video_mode == FREENECT_VIDEO_IR_8BIT) {
+				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_8U));
+				pImage->origin = 0;
+//				freenect_camera::fill(image, pImage->imageData);
+				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				new_image_data = true;
+
+			} else {
+				LOG4CPP_WARN( logger, "Unsupported IR Videomode: " << image.metadata.video_mode );
+			}
+			break;
+		case SENSOR_RGB:
+			if (image.metadata.video_mode == FREENECT_VIDEO_RGB) {
+				pImage.reset(new Vision::Image(width, height, 3, IPL_DEPTH_8U));
+				pImage->origin = 0;
+				pImage->channelSeq[0] = 'R';
+				pImage->channelSeq[1] = 'G';
+				pImage->channelSeq[2] = 'B';
+//				freenect_camera::fill(image, pImage->imageData);
+				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				new_image_data = true;
+
+			} else {
+				LOG4CPP_WARN( logger, "Unsupported RGB Videomode: " << image.metadata.video_mode );
+			}
 			break;
 
+		case SENSOR_DEPTH:
+			if (image.metadata.video_mode == FREENECT_DEPTH_11BIT) {
+				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
+				pImage->origin = 0;
+//				freenect_camera::fill(image, pImage->imageData);
+				memcpy(pImage->imageData, (unsigned char*)buffer.image_buffer.get(), buffer.metadata.bytes);
+				new_image_data = true;
 
-		case PIXEL_FORMAT_RGB888:
-			pImage.reset(new Vision::Image(frame.getWidth(), frame.getHeight(), 3, IPL_DEPTH_8U));
-			pImage->origin = 0;
-			pImage->channelSeq[0] = 'R';
-			pImage->channelSeq[1] = 'G';
-			pImage->channelSeq[2] = 'B';
-			memcpy(pImage->imageData, (unsigned char*)frame.getData(), frame.getWidth() * frame.getHeight() * 3);
-			new_image_data = true;
+			} else {
+				LOG4CPP_WARN( logger, "Unsupported DEPTH Videomode: " << image.metadata.video_mode );
+			}
 			break;
+
 		default:
-			LOG4CPP_WARN( logger, "Unknown pixel format: " << frame.getVideoMode().getPixelFormat());
+			// should never get here ..
+			break;
 	}
 
 	// undistort and process here ..
