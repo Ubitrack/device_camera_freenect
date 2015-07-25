@@ -227,6 +227,7 @@ public:
 	/** constructor */
 	FreenectComponent( const std::string& name, boost::shared_ptr< Graph::UTQLSubgraph > subgraph, const FreenectComponentKey& componentKey, FreenectModule* pModule );
 
+	void configureStream(const boost::shared_ptr<freenect_camera::FreenectDevice>& device);
 	void imageCb( const freenect_camera::ImageBuffer& image);
 
 	/** destructor */
@@ -235,6 +236,7 @@ public:
 
 protected:
 
+	std::string m_stream_mode;
 
 	// the port
 	Dataflow::PushSupplier< Measurement::ImageMeasurement > m_outPort;

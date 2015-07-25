@@ -6,10 +6,10 @@
 	xmlns:h="http://www.w3.org/1999/xhtml"
 	xsi:schemaLocation='http://ar.in.tum.de/ubitrack/utql ../../../schema/utql_templates.xsd'>
 
-	<Pattern name="FreenectFrameGrabberUncalibrated" displayName="Freenect Framegrabber (Uncalibrated)">
+	<Pattern name="FreenectRGBFrameGrabberUncalibrated" displayName="Freenect RGB Framegrabber (Uncalibrated)">
 		<Description>
 			<h:p>
-				This component grabs images from a Freenect device and pushes them.
+				This component grabs rgb images from a Freenect device and pushes them.
 			</h:p>
 		</Description>
 		<Output>
@@ -33,10 +33,80 @@
 				</Description>
 			</Attribute>
 
-			<Attribute name="sensorType" xsi:type="EnumAttributeReferenceType"/>
+			<Attribute name="videoModeRGB" value="RGB" xsi:type="EnumAttributeReferenceType"/>
+
+			<Attribute name="sensorType" value="COLOR" xsi:type="EnumAttributeReferenceType"/>
 
 		</DataflowConfiguration>
-	</Pattern>	
+	</Pattern>
+
+	<Pattern name="FreenectIRFrameGrabberUncalibrated" displayName="Freenect IR Framegrabber (Uncalibrated)">
+		<Description>
+			<h:p>
+				This component grabs infrared images from a Freenect device and pushes them.
+			</h:p>
+		</Description>
+		<Output>
+			<Node name="Camera" displayName="Camera" />
+			<Node name="ImagePlane" displayName="Image Plane" />
+			<Edge name="Output" source="Camera" destination="ImagePlane" displayName="Image">
+				<Description>
+					<h:p>The camera image.</h:p>
+				</Description>
+				<Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+			</Edge>
+		</Output>
+
+		<DataflowConfiguration>
+			<UbitrackLib class="FreenectFrameGrabber" />
+
+			<Attribute name="deviceSerial" default="" xsi:type="StringAttributeDeclarationType" displayName="device serial">
+				<Description>
+					<h:p>The device serial.</h:p>
+				</Description>
+			</Attribute>
+
+			<Attribute name="videoModeIR" value="IR_10BIT" xsi:type="EnumAttributeReferenceType"/>
+
+			<Attribute name="sensorType" value="IR" xsi:type="EnumAttributeReferenceType"/>
+
+		</DataflowConfiguration>
+	</Pattern>
+
+	<Pattern name="FreenectDEPTHFrameGrabberUncalibrated" displayName="Freenect Depth Framegrabber (Uncalibrated)">
+		<Description>
+			<h:p>
+				This component grabs depth images from a Freenect device and pushes them.
+			</h:p>
+		</Description>
+		<Output>
+			<Node name="Camera" displayName="Camera" />
+			<Node name="ImagePlane" displayName="Image Plane" />
+			<Edge name="Output" source="Camera" destination="ImagePlane" displayName="Image">
+				<Description>
+					<h:p>The camera image.</h:p>
+				</Description>
+				<Attribute name="type" value="Image" xsi:type="EnumAttributeReferenceType"/>
+				<Attribute name="mode" value="push" xsi:type="EnumAttributeReferenceType"/>
+			</Edge>
+		</Output>
+
+		<DataflowConfiguration>
+			<UbitrackLib class="FreenectFrameGrabber" />
+
+			<Attribute name="deviceSerial" default="" xsi:type="StringAttributeDeclarationType" displayName="device serial">
+				<Description>
+					<h:p>The device serial.</h:p>
+				</Description>
+			</Attribute>
+
+			<Attribute name="videoModeDEPTH" value="11BIT" xsi:type="EnumAttributeReferenceType"/>
+
+			<Attribute name="sensorType" value="DEPTH" xsi:type="EnumAttributeReferenceType"/>
+
+		</DataflowConfiguration>
+	</Pattern>
 	<!-- Attribute declarations -->
 
 	<GlobalNodeAttributeDeclarations>
@@ -58,6 +128,30 @@
 		<!-- Unfortunately, the xpointer used in Xinclude is currently restricted to the element scheme and absolute element indices in Xerces (and thus XMLBeans) -->
 		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/1)" />
 		<xi:include href="file:GlobalAttrSpec.xml" xpointer="element(/1/3/2)" />
+
+
+		<Attribute name="videoModeRGB" displayName="RGB Video Mode" default="RGB" xsi:type="EnumAttributeDeclarationType">
+			<Description><p xmlns="http://www.w3.org/1999/xhtml">VideoMode of the RGB Stream.</p></Description>
+			<EnumValue name="RGB" displayName="RGB"/>
+			<EnumValue name="Bayer" displayName="Bayer"/>
+		</Attribute>
+
+		<Attribute name="videoModeIR" displayName="IR Video Mode" default="IR_10BIT" xsi:type="EnumAttributeDeclarationType">
+			<Description><p xmlns="http://www.w3.org/1999/xhtml">VideoMode of the IR Stream.</p></Description>
+			<EnumValue name="IR_8BIT" displayName="8-Bit"/>
+			<EnumValue name="IR_10BIT" displayName="10-Bit"/>
+			<EnumValue name="IR_10BIT_PACKED" displayName="10-Bit Packed"/>
+		</Attribute>
+
+		<Attribute name="videoModeDEPTH" displayName="DEPTH Video Mode" default="IR_10BIT" xsi:type="EnumAttributeDeclarationType">
+			<Description><p xmlns="http://www.w3.org/1999/xhtml">VideoMode of the IR Stream.</p></Description>
+			<EnumValue name="11BIT" displayName="11-Bit"/>
+			<EnumValue name="10BIT" displayName="10-Bit"/>
+			<EnumValue name="11BIT_PACKED" displayName="11-Bit Packed"/>
+			<EnumValue name="10BIT_PACKED" displayName="10-Bit Packed"/>
+			<EnumValue name="REGISTERED" displayName="Registered"/>
+			<EnumValue name="MM" displayName="MM"/>
+		</Attribute>
 
 		<Attribute name="sensorType" displayName="Freenect Sensor Type" default="DEPTH" xsi:type="EnumAttributeDeclarationType">
 			<Description><p xmlns="http://www.w3.org/1999/xhtml">SensorType of the Freenect Device.</p></Description>

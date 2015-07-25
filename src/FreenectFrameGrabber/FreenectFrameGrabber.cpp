@@ -86,49 +86,17 @@ void FreenectModule::startModule() {
 
 	m_device.reset(new FreenectDevice(m_driver, m_device_id));
 
-	// start thread immediately - it will not send images if the module is not running ..
-	m_Thread.reset( new boost::thread( boost::bind( &FreenectModule::ThreadProc, this ) ) );
-
-}
-
-void FreenectModule::stopModule() {
-	// may need a lock here ...
-	if ( m_Thread )
-	{
-		m_bStop = true;
-		m_Thread->join();
-	}
-
-	if (m_device)
-		m_device->shutdown();
-	m_device.reset();
-	freenect_shutdown(m_driver);
-
-}
-
-
-FreenectModule::~FreenectModule()
-{
-	if (m_running) {
-		stopModule();
-	}
-}
-
-
-void FreenectModule::ThreadProc()
-{
-	LOG4CPP_DEBUG( logger, "Freenect Thread started" );
-
 	// check that steam only contains either IR or RGB nodes ..
 
 	ComponentList allComponents( getAllComponents() );
 	for ( ComponentList::iterator it = allComponents.begin(); it != allComponents.end(); it++ ) {
+		(*it)->configureStream(m_device);
 		switch ((*it)->getKey().getSensorType()) {
 			case SENSOR_IR:
 				m_device->registerIRCallback(&FreenectModule::irCb, *this );
 				LOG4CPP_INFO( logger, "registered IR callback");
-				if (!m_device->isImageStreamRunning())
-					m_device->startImageStream();
+				if (!m_device->isIRStreamRunning())
+					m_device->startIRStream();
 				break;
 			case SENSOR_RGB:
 				m_device->registerImageCallback(&FreenectModule::rgbCb, *this );
@@ -148,6 +116,52 @@ void FreenectModule::ThreadProc()
 		}
 	}
 
+
+	// start thread immediately - it will not send images if the module is not running ..
+	m_Thread.reset( new boost::thread( boost::bind( &FreenectModule::ThreadProc, this ) ) );
+
+}
+
+void FreenectModule::stopModule() {
+
+	if (m_device) {
+		if (m_device->isDepthStreamRunning()) {
+			m_device->stopDepthStream();
+		}
+		if (m_device->isImageStreamRunning()) {
+			m_device->stopImageStream();
+		}
+		if (m_device->isIRStreamRunning()) {
+			m_device->stopIRStream();
+		}
+	}
+
+	// may need a lock here ...
+	if ( m_Thread )
+	{
+		m_bStop = true;
+		m_Thread->join();
+	}
+
+	if (m_device)
+		m_device->shutdown();
+	m_device.reset();
+
+}
+
+
+FreenectModule::~FreenectModule()
+{
+	if (m_running) {
+		stopModule();
+	}
+	freenect_shutdown(m_driver);
+}
+
+
+void FreenectModule::ThreadProc()
+{
+	LOG4CPP_DEBUG( logger, "Freenect Thread started" );
 
 	while ( !m_bStop )
 	{
@@ -194,7 +208,37 @@ FreenectComponent::FreenectComponent( const std::string& name, boost::shared_ptr
 	: FreenectModule::Component( name, componentKey, pModule )
 	, m_outPort( "Output", *this )
 {
+	switch(componentKey.getSensorType()) {
+		case SENSOR_IR:
+			subgraph->m_DataflowAttributes.getAttributeData( "videoModeIR", m_stream_mode );
+			break;
+		case SENSOR_RGB:
+			subgraph->m_DataflowAttributes.getAttributeData( "videoModeRGB", m_stream_mode );
+			break;
+		case SENSOR_DEPTH:
+			subgraph->m_DataflowAttributes.getAttributeData( "videoModeDEPTH", m_stream_mode );
+			break;
+		default:
+			// never gets here ..
+			break;
+	}
+}
 
+void FreenectComponent::configureStream(const boost::shared_ptr<freenect_camera::FreenectDevice> &device) {
+	switch(getKey().getSensorType()) {
+		case SENSOR_IR:
+			// currently no settings, defaults to IR_8BIT
+			break;
+		case SENSOR_RGB:
+			// currently no settings, defaults to RGB
+			break;
+		case SENSOR_DEPTH:
+			// currently no settings, defaults to 11BIT
+			break;
+		default:
+			// never gets here ..
+			break;
+	}
 }
 
 void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
@@ -205,6 +249,7 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 	int width = image.metadata.width;
 	int height = image.metadata.height;
 
+	LOG4CPP_DEBUG( logger, "Image Callback Sensor: " << getKey().getSensorType() << " size: " << width << "x" << height);
 
 	bool new_image_data = false;
 	switch (getKey().getSensorType())

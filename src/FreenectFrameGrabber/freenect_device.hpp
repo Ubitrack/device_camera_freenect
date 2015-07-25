@@ -38,6 +38,11 @@ namespace freenect_camera {
         freenect_set_user(device_, this);
         freenect_set_depth_callback(device_, freenectDepthCallback);
         freenect_set_video_callback(device_, freenectVideoCallback);
+
+        // turn of any dynamic correction
+        freenect_set_flag(device_, FREENECT_AUTO_EXPOSURE, FREENECT_ON);
+        freenect_set_flag(device_, FREENECT_AUTO_WHITE_BALANCE, FREENECT_OFF);
+
         device_serial_ = serial;
         registration_ = freenect_copy_registration(device_);
 
@@ -191,7 +196,7 @@ namespace freenect_camera {
 
       void startIRStream() {
         boost::lock_guard<boost::recursive_mutex> lock(m_settings_);
-        new_video_format_ = FREENECT_VIDEO_IR_10BIT;
+        new_video_format_ = FREENECT_VIDEO_IR_8BIT;
         should_stream_video_ = true;
       }
 
