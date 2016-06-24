@@ -57,11 +57,21 @@ FreenectModule::FreenectModule( const FreenectModuleKey& moduleKey, boost::share
         : Module< FreenectModuleKey, FreenectComponentKey, FreenectModule, FreenectComponent >( moduleKey, pFactory )
 		, m_device_id(m_moduleKey.get())
         , m_bStop(false)
+		, m_autoGPUUpload(false)
 {
 	freenect_init(&m_driver, NULL);
 	//freenect_set_log_level(m_driver, FREENECT_LOG_FATAL); // Prevent's printing stuff to the screen
 	freenect_set_log_level(m_driver, FREENECT_LOG_DEBUG); // Prevent's printing stuff to the screen
 	freenect_select_subdevices(m_driver, (freenect_device_flags)(FREENECT_DEVICE_MOTOR | FREENECT_DEVICE_CAMERA));
+
+	Vision::OpenCLManager& oclManager = Vision::OpenCLManager::singleton();
+	if (oclManager.isEnabled()) {
+		if (subgraph->m_DataflowAttributes.hasAttribute("uploadImageOnGPU")){
+			m_autoGPUUpload = subgraph->m_DataflowAttributes.getAttributeString("uploadImageOnGPU") == "true";
+			LOG4CPP_INFO(logger, "Upload to GPU enabled? " << m_autoGPUUpload);
+		}
+	}
+
 
 }
 
@@ -307,9 +317,16 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 			break;
 	}
 
-	// undistort and process here ..
-
 	if (new_image_data) {
+
+		if (getModule().autoGPUEnabled()){
+			Vision::OpenCLManager& oclManager = Vision::OpenCLManager::singleton();
+			if (oclManager.isInitialized()) {
+				//force upload to the GPU
+				pImage->uMat();
+			}
+		}
+
 		m_outPort.send( Measurement::ImageMeasurement( ts, pImage ) );
 
 	}

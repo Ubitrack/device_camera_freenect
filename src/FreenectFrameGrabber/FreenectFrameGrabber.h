@@ -57,6 +57,7 @@
 
 #include <utVision/Image.h>
 #include <opencv/cv.h>
+#include <utVision/OpenCLManager.h>
 
 #include "freenect_device.hpp"
 
@@ -187,6 +188,10 @@ public:
 
 	virtual void stopModule();
 
+	bool autoGPUEnabled() {
+		return m_autoGPUUpload;
+	}
+
 protected:
 
 	// thread main loop
@@ -199,6 +204,9 @@ protected:
 	volatile bool m_bStop;
 
 	std::string m_device_id;
+
+	// automatic upload to GPU?
+	bool m_autoGPUUpload;
 
 	/** the device **/
 	freenect_context* m_driver;

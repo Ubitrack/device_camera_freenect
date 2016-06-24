@@ -37,6 +37,16 @@
 
 			<Attribute name="sensorType" value="COLOR" xsi:type="EnumAttributeReferenceType"/>
 
+			<Attribute name="uploadImageOnGPU" displayName="Automatic Upload on GPU" default="false" xsi:type="EnumAttributeDeclarationType">
+				<Description>
+					<h:p>
+						Each grabbed Image is automatically uploaded to the GPU for further processing. Attention: Uploading and downloading images from the GPU is time consuming.
+					</h:p>
+				</Description>
+				<EnumValue name="false" displayName="False"/>
+				<EnumValue name="true"  displayName="True"/>
+			</Attribute>
+
 		</DataflowConfiguration>
 	</Pattern>
 
@@ -71,6 +81,16 @@
 
 			<Attribute name="sensorType" value="IR" xsi:type="EnumAttributeReferenceType"/>
 
+			<Attribute name="uploadImageOnGPU" displayName="Automatic Upload on GPU" default="false" xsi:type="EnumAttributeDeclarationType">
+				<Description>
+					<h:p>
+						Each grabbed Image is automatically uploaded to the GPU for further processing. Attention: Uploading and downloading images from the GPU is time consuming.
+					</h:p>
+				</Description>
+				<EnumValue name="false" displayName="False"/>
+				<EnumValue name="true"  displayName="True"/>
+			</Attribute>
+
 		</DataflowConfiguration>
 	</Pattern>
 
@@ -104,6 +124,16 @@
 			<Attribute name="videoModeDEPTH" value="11BIT" xsi:type="EnumAttributeReferenceType"/>
 
 			<Attribute name="sensorType" value="DEPTH" xsi:type="EnumAttributeReferenceType"/>
+
+			<Attribute name="uploadImageOnGPU" displayName="Automatic Upload on GPU" default="false" xsi:type="EnumAttributeDeclarationType">
+				<Description>
+					<h:p>
+						Each grabbed Image is automatically uploaded to the GPU for further processing. Attention: Uploading and downloading images from the GPU is time consuming.
+					</h:p>
+				</Description>
+				<EnumValue name="false" displayName="False"/>
+				<EnumValue name="true"  displayName="True"/>
+			</Attribute>
 
 		</DataflowConfiguration>
 	</Pattern>
