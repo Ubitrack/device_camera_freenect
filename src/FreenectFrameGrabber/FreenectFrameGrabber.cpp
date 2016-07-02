@@ -267,16 +267,20 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 		case SENSOR_IR:
 			if (image.metadata.video_format == FREENECT_VIDEO_IR_8BIT) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_8U));
-				pImage->iplImage()->origin = 0;
+				pImage->set_origin(0);
+				pImage->set_pixelFormat(Vision::Image::DEPTH);
+				pImage->set_bitsPerPixel(8);
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->iplImage()->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
+				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else  if (image.metadata.video_format == FREENECT_VIDEO_IR_10BIT) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
-				pImage->iplImage()->origin = 0;
+				pImage->set_origin(0);
+				pImage->set_pixelFormat(Vision::Image::DEPTH);
+				pImage->set_bitsPerPixel(16);
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->iplImage()->imageData, (unsigned char *) image.image_buffer.get(), image.metadata.bytes);
+				memcpy(pImage->Mat().data, (unsigned char *) image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
@@ -286,12 +290,11 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 		case SENSOR_RGB:
 			if (image.metadata.video_format == FREENECT_VIDEO_RGB) {
 				pImage.reset(new Vision::Image(width, height, 3, IPL_DEPTH_8U));
-				pImage->iplImage()->origin = 0;
-				pImage->iplImage()->channelSeq[0] = 'R';
-				pImage->iplImage()->channelSeq[1] = 'G';
-				pImage->iplImage()->channelSeq[2] = 'B';
+				pImage->set_origin(0);
+				pImage->set_pixelFormat(Vision::Image::RGB);
+				pImage->set_bitsPerPixel(16);
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->iplImage()->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
+				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
@@ -302,9 +305,9 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 		case SENSOR_DEPTH:
 			if ((image.metadata.depth_format == FREENECT_DEPTH_11BIT) || (image.metadata.depth_format == FREENECT_DEPTH_MM)) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
-				pImage->iplImage()->origin = 0;
+				pImage->set_origin(0);
 //				freenect_camera::fill(image, pImage->imageData);
-				memcpy(pImage->iplImage()->imageData, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
+				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
 
 			} else {
