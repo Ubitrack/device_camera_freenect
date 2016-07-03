@@ -268,7 +268,7 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 			if (image.metadata.video_format == FREENECT_VIDEO_IR_8BIT) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_8U));
 				pImage->set_origin(0);
-				pImage->set_pixelFormat(Vision::Image::DEPTH);
+				pImage->set_pixelFormat(Vision::Image::LUMINANCE);
 				pImage->set_bitsPerPixel(8);
 //				freenect_camera::fill(image, pImage->imageData);
 				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
@@ -277,7 +277,7 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 			} else  if (image.metadata.video_format == FREENECT_VIDEO_IR_10BIT) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
 				pImage->set_origin(0);
-				pImage->set_pixelFormat(Vision::Image::DEPTH);
+				pImage->set_pixelFormat(Vision::Image::LUMINANCE);
 				pImage->set_bitsPerPixel(16);
 //				freenect_camera::fill(image, pImage->imageData);
 				memcpy(pImage->Mat().data, (unsigned char *) image.image_buffer.get(), image.metadata.bytes);
@@ -292,7 +292,7 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 				pImage.reset(new Vision::Image(width, height, 3, IPL_DEPTH_8U));
 				pImage->set_origin(0);
 				pImage->set_pixelFormat(Vision::Image::RGB);
-				pImage->set_bitsPerPixel(16);
+				pImage->set_bitsPerPixel(24);
 //				freenect_camera::fill(image, pImage->imageData);
 				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
@@ -306,6 +306,7 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 			if ((image.metadata.depth_format == FREENECT_DEPTH_11BIT) || (image.metadata.depth_format == FREENECT_DEPTH_MM)) {
 				pImage.reset(new Vision::Image(width, height, 1, IPL_DEPTH_16U));
 				pImage->set_origin(0);
+				pImage->set_pixelFormat(Vision::Image::DEPTH);
 //				freenect_camera::fill(image, pImage->imageData);
 				memcpy(pImage->Mat().data, (unsigned char*)image.image_buffer.get(), image.metadata.bytes);
 				new_image_data = true;
