@@ -173,6 +173,9 @@ void FreenectModule::ThreadProc()
 {
 	LOG4CPP_DEBUG( logger, "Freenect Thread started" );
 
+	// wait a bit before processing the stream
+	Util::sleep(300);
+
 	while ( !m_bStop )
 	{
 
