@@ -31,7 +31,8 @@
  */
 
 #include "FreenectFrameGrabber.h"
-#include "../../../utcore/src/utMeasurement/Timestamp.h"
+#include <utMeasurement/Timestamp.h>
+#include <utUtil/TracingProvider.h>
 
 #include <iostream>
 #include <sstream>
@@ -256,6 +257,10 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 	Ubitrack::Measurement::Timestamp ts = Ubitrack::Measurement::now();
 	boost::shared_ptr< Vision::Image > pImage;
 
+#ifdef ENABLE_EVENT_TRACING
+	TRACEPOINT_MEASUREMENT_CREATE(getEventDomain(), ts, getName().c_str(), "VideoCapture")
+#endif
+
 	int width = image.metadata.width;
 	int height = image.metadata.height;
 
@@ -330,6 +335,8 @@ void FreenectComponent::imageCb( const freenect_camera::ImageBuffer& image) {
 				pImage->uMat();
 			}
 		}
+
+		// undistortion should be added here ..
 
 		m_outPort.send( Measurement::ImageMeasurement( ts, pImage ) );
 
